@@ -1,0 +1,5 @@
+langchain
+wikipedia
+requests
+google-generativeai
+langchain-community
