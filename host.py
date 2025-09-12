@@ -44,6 +44,7 @@ Based on the above and your knowledge, enumerate the **top 5 most likely rare di
 3. Rank from most (#1) to least (#5) likely.
 4. Integrate information from all provided sources (medical literature, similar cases, and judgment analyses) wherever appropriate.
 5. Do **not** copy or invent references—only include those present in the provided materials.
+6. Use bold formatting (**) only for the 'DIAGNOSIS NAME'. Do not use it anywhere else in the output.
 """
 
 
@@ -70,7 +71,7 @@ class RareDiseaseDiagnosisHost:
         self.self_reflection_agent = SelfReflectionAgent(
             disease_normalizer=self.disease_normalizer,
             knowledge_searcher=self.knowledge_searcher,
-            max_reflection=2  # 例: 2回まで自己反省
+             # 例: 2回まで自己反省
         )
         self.memory = []
         self.diagnosis_list = []
@@ -78,11 +79,11 @@ class RareDiseaseDiagnosisHost:
 
     
     def run(self, hpo_list):
-        max_retry = 2  # 再診断回数の上限（必要に応じて調整）
+        max_retry = 2  # In order to limit the usage of API Key, set maximum for self-reflection.
         retry_count = 0
 
-        while True:
-        # ステージ1: 情報収集・候補生成
+        while (retry_count < max_retry):
+        # collecting information and generating candidates
             if self.config["knowledge_searcher"]:
                 knowledge = self.knowledge_searcher.search(", ".join(hpo_list))
             else:
@@ -95,7 +96,7 @@ class RareDiseaseDiagnosisHost:
                 candidates = self.phenotype_analyzer.analyze(hpo_list)
             else:
                 candidates = {"pubcasefinder": [], "gemini": []}
-        # メモリ更新（再診断時はリセット）
+        # reset memory when it is first try.
             if retry_count == 0:
                 self.memory = []
             self.memory.append({
@@ -121,14 +122,14 @@ class RareDiseaseDiagnosisHost:
                 print(f"[Host] Gemini診断レポート生成失敗: {e}")
                 diagnosis_report = "診断レポート生成に失敗しました。"
 
-        # 診断レポート生成後に自己反省ループを実行
+        
             if self.config.get("self_reflection", True):
                 reflection_result = self.self_reflection_agent.reflect(
-                diagnosis_report=diagnosis_report,
-                patient_info=", ".join(hpo_list),
-                similar_case_detailed=str(cases),
-                info_amount=retry_count+1
+                    diagnosis_report=diagnosis_report,
+                    patient_info=", ".join(hpo_list),
+                    similar_case_detailed=str(cases),
                 )
+                retry_count += 1
             else:
                 reflection_result = None
 

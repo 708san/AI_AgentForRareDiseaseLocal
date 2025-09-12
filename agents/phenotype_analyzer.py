@@ -58,9 +58,7 @@ class PhenotypeAnalyzer:
             print(f"[PhenotypeAnalyzer] Gemini API失敗: {e}")
             return []
 
-    def _build_prompt(self, hpo_list):
-        hpo_str = ", ".join(hpo_list)
-        return f"You are a specialist in the field of rare diseases. Patient's HPO terms: {hpo_str}. List the top 5 most likely rare disease diagnoses.Be precise, and try to cover many unique possibilities.Each diagnosis should be a rare disease.Use ** to tag the disease name.Make sure to reorder the diagnoses from most likely to least likely.Now, List the top 5 diagnoses."
+    
     def _build_prompt(self, hpo_list):
         hpo_str = ", ".join(hpo_list)
         return (
@@ -95,15 +93,17 @@ class PhenotypeAnalyzer:
         return disease_names
 
     def normalize_gemini_diseases(self,gemini_disease_names):
-        normalizer = DiseaseNormalizer(top_k=1)
+        normalizer = DiseaseNormalizer()
         normalized_list = []
         for name in gemini_disease_names:
             result = normalizer.normalize(name)
-            if result and "id" in result and "label" in result:
-                normalized_list.append({
-                    "id": result["id"],
-                    "label": result["label"]
-                })
+            if result and "id" in result and "name" in result:
+                normalized_list.append(
+                    {
+                        "id": result["id"],
+                        "label": result["name"]
+                    }
+                )
         return normalized_list
 
 

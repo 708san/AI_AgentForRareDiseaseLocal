@@ -1,41 +1,70 @@
-import requests
-from time import sleep
+import os
+import numpy as np
+import pickle
+import google.generativeai as genai
 
 class DiseaseNormalizer:
-    """
-    疾患名をOMIM/Orphanet標準IDに正規化するエージェント。
-    TogoSeek API (collection: 'omim') を利用。
-    """
-    def __init__(self, top_k=1):
-        self.api_url = "https://togoseek.dbcls.jp/search"
-        self.headers = {"Content-Type": "application/json"}
-        self.top_k = top_k
+    def __init__(self, embeddings_path= "./data/omim_embeddings.pkl"):
+        """
+        コンストラクタ。事前計算されたembeddingデータをロードし、APIキーを設定する。
+        """
+        # 環境変数からGoogle APIキーを読み込む
+        api_key = os.getenv("GOOGLE_API_KEY")
+        if not api_key:
+            raise ValueError("環境変数 'GOOGLE_API_KEY' が設定されていません。")
+        
+        genai.configure(api_key=api_key)
+
+        with open(embeddings_path, 'rb') as f:
+            normalized_data = pickle.load(f)
+            self.omim_vectors = normalized_data['vectors']
+            self.omim_ids = normalized_data['ids']
+            self.omim_labels = normalized_data['labels']
+        
+        # ベクトルを正規化（L2ノルムで割る）
+        self.omim_vectors /= np.linalg.norm(self.omim_vectors, axis=1, keepdims=True)
+        
+        print("DiseaseNormalizerの準備ができました。")
 
     def normalize(self, disease_name):
         """
-        疾患名をOMIM/Orphanet標準IDに正規化する。
-        Args:
-            disease_name (str): 正規化したい疾患名
-        Returns:
-            dict: 正規化結果（OMIM/Orphanet ID, スコア等）
+        疾患名を受け取り、最も類似したOMIM疾患のIDと病名を返す。
         """
-        payload = {
-            "query": disease_name,
-            "collection": "omim",
-            "metric": "euclid",
-            "topK": self.top_k,
-            "minCosineSimilarity": 0.3,
-            "maxDistance": 1.3
+        # 入力された疾患名をembedding
+        result = genai.embed_content(
+            model="models/embedding-001",
+            content=disease_name,
+            task_type="RETRIEVAL_QUERY"
+        )
+        query_vector = np.array(result['embedding'])
+
+        # ベクトルを正規化
+        query_vector /= np.linalg.norm(query_vector)
+
+        # コサイン類似度を計算 (内積)
+        similarities = np.dot(self.omim_vectors, query_vector.T).flatten()
+
+        # 最も類似度が高い疾患のインデックスを取得
+        closest_index = np.argmax(similarities)
+
+        return {
+            'id': self.omim_ids[closest_index],
+            'name': self.omim_labels[closest_index],
+            'similarity': similarities[closest_index]
         }
-        try:
-            response = requests.post(self.api_url, headers=self.headers, json=payload, timeout=30)
-            response.raise_for_status()
-            result = response.json()
-            sleep(0.1)  # API負荷軽減
-            if result and "results" in result and len(result["results"]) > 0:
-                return result["results"][0]  # 最上位のみ返す
-            else:
-                return None
-        except requests.exceptions.RequestException as e:
-            print(f"[DiseaseNormalizer] APIリクエスト失敗: {e}")
-            return None
+
+"""
+try:
+    normalizer = DiseaseNormalizer()
+    result = normalizer.normalize("LIPPEL-FEIL SYNDROME 2, AUTOSOMAL RECESSIVE; KFS")
+    print(f"入力: LIPPEL-FEIL SYNDROME 2, AUTOSOMAL RECESSIVE; KFS")
+    print(f"正規化結果: {result}")
+    
+    result_2 = normalizer.normalize("INFLAMMATORY BOWEL DISEASE 25, AUTOSOMAL RECESSIVE; IBD")
+    print(f"入力: INFLAMMATORY BOWEL DISEASE 25, AUTOSOMAL RECESSIVE; IBD")
+    print(f"正規化結果: {result_2}")
+#
+except (ValueError, FileNotFoundError) as e:
+    print(e)
+    print("エラー: 'omim_embeddings.pkl' が見つかりません。先に事前準備のコードを実行してください。")
+"""
