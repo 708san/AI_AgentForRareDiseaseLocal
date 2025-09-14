@@ -27,7 +27,7 @@ flowchart TD
     DN --> KSR["Knowledge Searcher"]
     KSR --> J["Judge<br><span style='font-size:10px'>Prompt6</span>"]
     PD --> J
-    CT --> KS
+    CT -->|" "| KS
     J --> FD["Final Diagnosis"]
     J -. "Depth+1 (if Predicted disease = ∅ )" ..->  START
 
@@ -39,8 +39,28 @@ flowchart TD
     Q -. "PhenopacketStore data" .-> CT
     FI --> GM["GestaltMatcher"]
     GM --> PD
-
+    KS -- " " --> WS
+    KS -- " " --> DBS
+    WS -- " " --> S
+    DBS -- " " --> S
+    CS -- " " --> RR
+    RR -- " " --> R
+    S -- " " --> PD
+    R -- " " --> PD
+    %% style for blue arrow
+    linkStyle 10,21,24,27,30,31,32,33,34,35,36,37 stroke:#0074D9,stroke-width:2px;
+    %% style for red arrow
     
+    linkStyle 25,29,28 stroke:#FF4136,stroke-width:2px;
     %% 矢印の色や深さの表現はMermaidでは省略
     %% 青色のループや赤色はコメントで補足
-````
+    
+```
+
+
+# Research Question
+
+1. Which is more effective for identifying similar patient cases and relevant medical information: free-form clinical narratives or standardized HPO annotations?
+
+2. Are facial photographs effective for diagnosing rare diseases?
+
