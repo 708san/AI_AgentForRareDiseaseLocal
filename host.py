@@ -5,6 +5,7 @@ from agents.phenotype_analyzer import PhenotypeAnalyzer
 from agents.disease_normalizer import DiseaseNormalizer
 from agents.self_reflection_agent import SelfReflectionAgent
 import google.generativeai as genai
+from agents.hpo_mapping import HPOMapping
 
 PROMPT4_TEMPLATE = """
 You are a specialist in the field of rare diseases.
@@ -71,7 +72,7 @@ class RareDiseaseDiagnosisHost:
         self.self_reflection_agent = SelfReflectionAgent(
             disease_normalizer=self.disease_normalizer,
             knowledge_searcher=self.knowledge_searcher,
-             # 例: 2回まで自己反省
+             
         )
         self.memory = []
         self.diagnosis_list = []
@@ -82,14 +83,17 @@ class RareDiseaseDiagnosisHost:
         max_retry = 2  # In order to limit the usage of API Key, set maximum for self-reflection.
         retry_count = 0
 
+        hpo_mapping = HPOMapping()
+        hpoid_label_list = hpo_mapping.convert(hpo_list)
+
         while (retry_count < max_retry):
         # collecting information and generating candidates
             if self.config["knowledge_searcher"]:
-                knowledge = self.knowledge_searcher.search(", ".join(hpo_list))
+                knowledge = self.knowledge_searcher.search(", ".join(hpoid_label_list))
             else:
                 knowledge = []
             if self.config["case_searcher"]:
-                cases = self.case_searcher.search(", ".join(hpo_list))
+                cases = self.case_searcher.search(",".join(hpoid_label_list))
             else:
                 cases = []
             if self.config["phenotype_analyzer"]:

@@ -3,6 +3,7 @@ import os
 from time import sleep
 import re
 from agents.disease_normalizer import DiseaseNormalizer
+from agents.hpo_mapping import HPOMapping
 
 class PhenotypeAnalyzer:
     """
@@ -11,6 +12,7 @@ class PhenotypeAnalyzer:
     """
     def __init__(self, gemini_api_key=None):
         self.gemini_api_key = gemini_api_key or os.getenv("GOOGLE_API_KEY")
+        self.hpo_mapper = HPOMapping()
 
     def analyze_with_pubcasefinder(self, hpo_list):
         """
@@ -50,7 +52,9 @@ class PhenotypeAnalyzer:
         import google.generativeai as genai
         genai.configure(api_key=self.gemini_api_key)
         model = genai.GenerativeModel("gemini-2.5-flash")
-        prompt = self._build_prompt(hpo_list)
+        # hpoid→id:label
+        hpo_id_label_list = self.hpo_mapper.convert(hpo_list)
+        prompt = self._build_prompt(hpo_id_label_list)
         try:
             response = model.generate_content(prompt)
             return response.text.split("\n")
@@ -58,9 +62,8 @@ class PhenotypeAnalyzer:
             print(f"[PhenotypeAnalyzer] Gemini API失敗: {e}")
             return []
 
-    
-    def _build_prompt(self, hpo_list):
-        hpo_str = ", ".join(hpo_list)
+    def _build_prompt(self, hpo_id_label_list):
+        hpo_str = ", ".join(hpo_id_label_list)
         return (
         f"You are a specialist in the field of rare diseases. "
         f"Patient's HPO terms: {hpo_str}. "
